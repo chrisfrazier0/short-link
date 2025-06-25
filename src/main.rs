@@ -1,16 +1,10 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, web};
 use anyhow::{Context, Result};
-
-async fn health_check() -> impl Responder {
-  HttpResponse::Ok()
-}
+use std::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  HttpServer::new(|| App::new().route("/health_check", web::get().to(health_check)))
-    .bind("127.0.0.1:8080")
-    .context("Failed to bind address")?
-    .run()
+  let listener = TcpListener::bind("127.0.0.1:8080").context("Failed to bind address")?;
+  short_link::run(listener)?
     .await
     .context("Failed to run server")
 }

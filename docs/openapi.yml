@@ -1,0 +1,79 @@
+openapi: '3.0.3'
+info:
+  title: Short-Link API
+  version: '1.0'
+  description: API for managing short-link server
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local Development
+  - url: https://frz.sh
+    description: Production Server
+
+paths:
+  /_/health_check:
+    get:
+      operationId: health_check
+      responses:
+        '200':
+          description: Responds 200 OK if service is healthy
+      tags: [utility]
+
+  /_/link:
+    post:
+      operationId: create_short_link
+      description: Create a new short-link
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewLinkPayload'
+      responses:
+        '201':
+          description: New short-link created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewLinkResponse'
+      tags: [short-link]
+
+components:
+  schemas:
+    NewLinkPayload:
+      type: object
+      properties:
+        url:
+          type: string
+          description: Target URL for the short-link
+          example: https://google.com/some/long/url
+      required:
+        - url
+
+    NewLinkResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the short-link
+          example: 575b2935-f2c2-4449-afbf-dec3339a9a3e
+        short:
+          type: string
+          description: The short-link url
+          example: https://frz.sh/f7h
+        full:
+          type: string
+          description: The fully expanded URL
+          example: https://google.com/some/long/url
+        created_at:
+          type: string
+          description: DateTime of when the short-link was created
+          example: '2023-10-01T12:34:56Z'
+        updated_at:
+          type: string
+          description: DateTime of when the short-link was last updated
+          example: '2023-10-01T12:34:56Z'
+      required:
+        - id
+        - short
+        - full
+        - created_at
+        - updated_at
