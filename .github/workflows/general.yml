@@ -1,4 +1,4 @@
-name: Rust
+name: General checks
 on: [push, pull_request]
 
 env:
@@ -35,6 +35,10 @@ jobs:
     services:
       postgres:
         image: postgres:17
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
     steps:
@@ -46,7 +50,7 @@ jobs:
 
       - name: Create app user in Postgres
         run: |
-          apt-get install postgresql-client
+          sudo apt-get install postgresql-client
           export PGPASSWORD="${POSTGRES_PASSWORD}"
 
           CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PW}';"
@@ -56,13 +60,13 @@ jobs:
           psql -U "${POSTGRES_USER}" -h localhost -c "${GRANT_QUERY}"
 
       - name: Migrate database
-        run: SKIP_DOCKER=true just db
+        run: SKIP_DOCKER=true ./scripts/database.sh
 
       - name: Run tests
         run: cargo test
 
       - name: Check that queries are fresh
-        run: sqlx prepare --workspace --check -- --all-targets
+        run: cargo sqlx prepare --workspace --check -- --all-targets
 
   coverage:
     name: Code coverage
@@ -70,6 +74,10 @@ jobs:
     services:
       postgres:
         image: postgres:17
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
     steps:
@@ -81,7 +89,7 @@ jobs:
 
       - name: Create app user in Postgres
         run: |
-          apt-get install postgresql-client
+          sudo apt-get install postgresql-client
           export PGPASSWORD="${POSTGRES_PASSWORD}"
 
           CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PW}';"
@@ -91,24 +99,39 @@ jobs:
           psql -U "${POSTGRES_USER}" -h localhost -c "${GRANT_QUERY}"
 
       - name: Migrate database
-        run: SKIP_DOCKER=true just db
+        run: SKIP_DOCKER=true ./scripts/database.sh
 
       - name: Install cargo-llvm-cov
         run: cargo +stable install cargo-llvm-cov --locked
 
       - name: Generate report
-        run: cargo llvm-cov --all-features --workspace --cobertura --output-path coverage.cobertura.xml
+        run: cargo llvm-cov --all-features --workspace --json --output-path coverage.json
 
       - name: Generate summary
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: coverage.cobertura.xml
-          badge: true
-          format: markdown
-          # hide_branch_rate: true
-          # hide_complexity: true
-          # indicators: false
-          output: both
-
-      - name: Add coverage summary to job info
-        run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
+        run: |
+          echo "| File | Lines % | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          total=0
+          count=0
+          while IFS=$'\t' read -r file lines; do
+            relative_file=$(realpath --relative-to="$PWD" "$file")
+            if (( $(echo "$lines < 50" | bc -l) )); then
+              health_status=":x:"
+            elif (( $(echo "$lines < 80" | bc -l) )); then
+              health_status=":neutral_face:"
+            else
+              health_status=":white_check_mark:"
+            fi
+            echo "| $relative_file | $lines% | $health_status |" >> $GITHUB_STEP_SUMMARY
+            total=$(echo "$total + $lines" | bc)
+            count=$((count+1))
+          done < <(jq -r '.data[].files[] | [.filename, .summary.lines.percent] | @tsv' coverage.json)
+          average=$(echo "scale=2; $total / $count" | bc)
+          if (( $(echo "$average < 50" | bc -l) )); then
+            health_status=":x:"
+          elif (( $(echo "$average < 80" | bc -l) )); then
+            health_status=":neutral_face:"
+          else
+            health_status=":white_check_mark:"
+          fi
+          echo "| **Total** | **${average}%** | $health_status |" >> $GITHUB_STEP_SUMMARY
