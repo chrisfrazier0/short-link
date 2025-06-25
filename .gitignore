@@ -93,6 +93,7 @@ tags
 
 # dotenv environment variable files
 # .env
+.envrc
 *.local
 
 # Runtime data

@@ -1,0 +1,24 @@
+name: Security audit
+on:
+  schedule:
+    - cron: "0 0 * * 1"
+  push:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+
+jobs:
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Scan for vulnerabilities
+        run: |
+          cargo audit \
+          --ignore RUSTSEC-2023-0071

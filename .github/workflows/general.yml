@@ -1,0 +1,114 @@
+name: Rust
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  APP_USER: app
+  APP_USER_PW: secret
+
+jobs:
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Enforce formatting
+        run: cargo fmt --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Run linter
+        run: cargo clippy -- -D warnings
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        ports:
+          - 5432:5432
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features rustls,postgres
+
+      - name: Create app user in Postgres
+        run: |
+          apt-get install postgresql-client
+          export PGPASSWORD="${POSTGRES_PASSWORD}"
+
+          CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PW}';"
+          psql -U "${POSTGRES_USER}" -h localhost -c "${CREATE_QUERY}"
+
+          GRANT_QUERY="ALTER USER ${APP_USER} CREATEDB;"
+          psql -U "${POSTGRES_USER}" -h localhost -c "${GRANT_QUERY}"
+
+      - name: Migrate database
+        run: SKIP_DOCKER=true just db
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Check that queries are fresh
+        run: sqlx prepare --workspace --check -- --all-targets
+
+  coverage:
+    name: Code coverage
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        ports:
+          - 5432:5432
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features rustls,postgres
+
+      - name: Create app user in Postgres
+        run: |
+          apt-get install postgresql-client
+          export PGPASSWORD="${POSTGRES_PASSWORD}"
+
+          CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PW}';"
+          psql -U "${POSTGRES_USER}" -h localhost -c "${CREATE_QUERY}"
+
+          GRANT_QUERY="ALTER USER ${APP_USER} CREATEDB;"
+          psql -U "${POSTGRES_USER}" -h localhost -c "${GRANT_QUERY}"
+
+      - name: Migrate database
+        run: SKIP_DOCKER=true just db
+
+      - name: Install cargo-llvm-cov
+        run: cargo +stable install cargo-llvm-cov --locked
+
+      - name: Generate report
+        run: cargo llvm-cov --all-features --workspace --cobertura --output-path coverage.cobertura.xml
+
+      - name: Generate summary
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage.cobertura.xml
+          badge: true
+          format: markdown
+          # hide_branch_rate: true
+          # hide_complexity: true
+          # indicators: false
+          output: both
+
+      - name: Add coverage summary to job info
+        run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY

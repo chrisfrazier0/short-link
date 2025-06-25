@@ -1,8 +1,11 @@
 mod common;
 
 use crate::common::spawn_app;
+use claims::*;
 use reqwest::Client;
 use serde::Deserialize;
+// use short_link::configuration::Configuration;
+// use sqlx::{Connection, PgConnection};
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 struct NewLinkResponse {
@@ -18,6 +21,11 @@ async fn link_returns_201_for_valid_data() {
   // Arrange
   let address = spawn_app();
   let client = Client::new();
+  // let config = Configuration::load("SLINK", None).expect("Failed to load configuration");
+  // let conn_string = config.database.connection_string();
+  // let mut conn = PgConnection::connect(&conn_string)
+  //   .await
+  //   .expect("Failed to connect to postgres");
 
   // Act
   // TODO: supply sample data for the new link body
@@ -31,10 +39,18 @@ async fn link_returns_201_for_valid_data() {
     .expect("Failed to execute request");
 
   // Assert
-  assert_eq!(201, response.status().as_u16());
+  assert_eq!(response.status().as_u16(), 201);
   let response: Result<NewLinkResponse, reqwest::Error> = response.json().await;
   // TODO: better tests for link response
-  assert!(!response.is_ok());
+  assert_ok!(response);
+
+  // let saved = sqlx::query!("SELECT id, code, url FROM links")
+  //   .fetch_one(&mut conn)
+  //   .await
+  //   .expect("Failed to fetch saved link");
+
+  // assert_eq!(saved.url, "http://google.com");
+  // assert_eq!(saved.code.len(), 3);
 }
 
 #[tokio::test]
@@ -52,6 +68,6 @@ async fn link_returns_400_when_input_missing() {
     .expect("Failed to execute request");
 
   // Assert
-  assert_eq!(400, response.status().as_u16());
+  assert_eq!(response.status().as_u16(), 400);
   // TODO: better tests for link 400 message
 }

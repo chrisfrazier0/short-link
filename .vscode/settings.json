@@ -1,0 +1,21 @@
+{
+  "dbcode.connections": [
+    {
+      "connectionId": "7Xj3x8-RK4S8f67FFWGZU",
+      "name": "Local Database",
+      "driver": "postgres",
+      "color": "#009670",
+      "connectionType": "host",
+      "host": "localhost",
+      "port": 5432,
+      "ssl": false,
+      "username": "app",
+      "password": "secret",
+      "savePassword": "yes",
+      "database": "shortlinks",
+      "readOnly": false,
+      "connectionTimeout": 30
+    }
+  ],
+  "cSpell.words": ["shortlinks"]
+}
