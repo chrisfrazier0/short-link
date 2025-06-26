@@ -22,6 +22,8 @@ jobs:
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
+    env:
+      SQLX_OFFLINE: true
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
@@ -115,6 +117,7 @@ jobs:
           count=0
           while IFS=$'\t' read -r file lines; do
             relative_file=$(realpath --relative-to="$PWD" "$file")
+            lines=$(printf "%.2f" "$lines")
             if (( $(echo "$lines < 50" | bc -l) )); then
               health_status=":x:"
             elif (( $(echo "$lines < 80" | bc -l) )); then
