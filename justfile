@@ -6,6 +6,10 @@ _default:
 db:
   ./scripts/database.sh
 
+# Start the server with bunyan pretty-print
+start: db
+  @cargo run | bunyan
+
 # Audit the dependencies for known vulnerabilities
 audit:
    cargo audit \
@@ -14,9 +18,10 @@ audit:
 # Run general CI checks locally
 check: audit
   @cargo fmt --check
-  @cargo clippy -- -D warnings
+  @SQLX_OFFLINE=true cargo clippy -- -D warnings
   @cargo test
   @cargo sqlx prepare --workspace --check -- --all-targets
+  @SQLX_OFFLINE=true cargo +nightly udeps
 
 # Prepare the sqlx query cache
 prepare:

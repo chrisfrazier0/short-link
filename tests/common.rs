@@ -1,11 +1,26 @@
+use dotenv::dotenv;
 use reqwest::Client;
+use secrecy::ExposeSecret;
 use short_link::{
   configuration::{Configuration, DatabaseConfig},
   startup::start,
+  telemetry::Telemetry,
 };
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::net::TcpListener;
+use std::{net::TcpListener, sync::LazyLock};
 use uuid::Uuid;
+
+static TELEMETRY: LazyLock<()> = LazyLock::new(|| {
+  dotenv().ok();
+  let t = Telemetry::new("test", "debug");
+  if std::env::var("TEST_LOG").is_ok() {
+    t.init(std::io::stdout)
+      .expect("Failed to setup stdout telemetry");
+  } else {
+    t.init(std::io::sink)
+      .expect("Failed to setup null telemetry");
+  }
+});
 
 pub struct TestFixtures {
   pub client: Client,
@@ -16,6 +31,8 @@ pub struct TestFixtures {
 }
 
 pub async fn prepare() -> TestFixtures {
+  LazyLock::force(&TELEMETRY);
+
   let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind address");
   let port = listener.local_addr().unwrap().port();
   let address = format!("http://127.0.0.1:{}", port);
@@ -40,7 +57,7 @@ pub async fn configure_database(config: &DatabaseConfig) -> PgPool {
     ..config.clone()
   };
 
-  let mut conn = PgConnection::connect(&maintenance.connection_string())
+  let mut conn = PgConnection::connect(maintenance.connection_string().expose_secret())
     .await
     .expect("Failed to connect to postgres");
 
@@ -50,7 +67,7 @@ pub async fn configure_database(config: &DatabaseConfig) -> PgPool {
     .await
     .expect("Failed to create database");
 
-  let db_pool = PgPool::connect(&config.connection_string())
+  let db_pool = PgPool::connect(config.connection_string().expose_secret())
     .await
     .expect("Failed to create connection pool");
 

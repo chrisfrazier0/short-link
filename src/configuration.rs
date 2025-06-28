@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use config::Config;
+use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -15,8 +16,21 @@ pub struct DatabaseConfig {
   pub host: Option<String>,
   pub port: Option<u16>,
   pub username: Option<String>,
-  pub password: Option<String>,
+  pub password: Option<SecretString>,
   pub name: Option<String>,
+}
+
+impl DatabaseConfig {
+  pub fn connection_string(&self) -> SecretString {
+    SecretString::from(format!(
+      "postgres://{}:{}@{}:{}/{}",
+      self.username.as_ref().unwrap(),
+      self.password.as_ref().unwrap().expose_secret(),
+      self.host.as_ref().unwrap(),
+      self.port.as_ref().unwrap(),
+      self.name.as_ref().unwrap(),
+    ))
+  }
 }
 
 impl Configuration {
@@ -47,18 +61,5 @@ impl Configuration {
     database.name.get_or_insert("shortlinks".into());
 
     Ok(config)
-  }
-}
-
-impl DatabaseConfig {
-  pub fn connection_string(&self) -> String {
-    format!(
-      "postgres://{}:{}@{}:{}/{}",
-      self.username.as_ref().unwrap(),
-      self.password.as_ref().unwrap(),
-      self.host.as_ref().unwrap(),
-      self.port.as_ref().unwrap(),
-      self.name.as_ref().unwrap(),
-    )
   }
 }

@@ -5,6 +5,7 @@ env:
   CARGO_TERM_COLOR: always
   POSTGRES_USER: postgres
   POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: postgres
   APP_USER: app
   APP_USER_PW: secret
 
@@ -40,7 +41,7 @@ jobs:
         env:
           POSTGRES_USER: ${{ env.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_DB: postgres
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
         ports:
           - 5432:5432
     steps:
@@ -79,7 +80,7 @@ jobs:
         env:
           POSTGRES_USER: ${{ env.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_DB: postgres
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
         ports:
           - 5432:5432
     steps:
@@ -138,3 +139,18 @@ jobs:
             health_status=":white_check_mark:"
           fi
           echo "| **Total** | **${average}%** | $health_status |" >> $GITHUB_STEP_SUMMARY
+
+  udeps:
+    name: Unused dependencies check
+    runs-on: ubuntu-latest
+    env:
+      SQLX_OFFLINE: true
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Install udeps
+        run: cargo install cargo-udeps --locked
+
+      - name: Check dependencies
+        run: cargo +nightly udeps
