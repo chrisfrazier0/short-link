@@ -6,9 +6,15 @@ _default:
 db:
   ./scripts/database.sh
 
+# Shutdown docker containers
+stop:
+  docker stop postgres
+
 # Start the server with bunyan pretty-print
-start: db
+run: db
   @cargo run | bunyan
+
+alias start := run
 
 # Audit the dependencies for known vulnerabilities
 audit:
@@ -27,6 +33,6 @@ check: audit
 prepare:
   cargo sqlx prepare --workspace -- --all-targets
 
-# Shutdown docker containers
-stop:
-  docker stop postgres
+cov:
+  @SQLX_OFFLINE=true cargo llvm-cov --all-features --workspace --html \
+    --ignore-filename-regex '(main\.rs)'

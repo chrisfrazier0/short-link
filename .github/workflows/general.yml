@@ -108,7 +108,10 @@ jobs:
         run: cargo +stable install cargo-llvm-cov --locked
 
       - name: Generate report
-        run: cargo llvm-cov --all-features --workspace --json --output-path coverage.json
+        run: |
+          cargo llvm-cov --all-features --workspace \
+            --json --output-path coverage.json \
+            --ignore-filename-regex '(main\.rs)'
 
       - name: Generate summary
         run: |

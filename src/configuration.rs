@@ -1,65 +1,66 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use config::Config;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Configuration {
-  pub port: Option<u16>,
-
-  #[serde(default)]
+  pub server: ServerConfig,
   pub database: DatabaseConfig,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerConfig {
+  pub host: String,
+  pub port: u16,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct DatabaseConfig {
-  pub host: Option<String>,
-  pub port: Option<u16>,
-  pub username: Option<String>,
-  pub password: Option<SecretString>,
-  pub name: Option<String>,
+  pub host: String,
+  pub port: u16,
+  pub username: String,
+  pub password: SecretString,
+  pub name: String,
 }
 
 impl DatabaseConfig {
   pub fn connection_string(&self) -> SecretString {
     SecretString::from(format!(
       "postgres://{}:{}@{}:{}/{}",
-      self.username.as_ref().unwrap(),
-      self.password.as_ref().unwrap().expose_secret(),
-      self.host.as_ref().unwrap(),
-      self.port.as_ref().unwrap(),
-      self.name.as_ref().unwrap(),
+      self.username,
+      self.password.expose_secret(),
+      self.host,
+      self.port,
+      self.name,
     ))
   }
 }
 
 impl Configuration {
   pub fn load(prefix: &str, file: Option<&str>) -> Result<Self> {
-    let builder = match file {
-      Some(file) => Config::builder().add_source(config::File::with_name(file)),
-      None => Config::builder(),
+    let file = match file {
+      Some(file) => file,
+      None => {
+        let cwd = std::env::current_dir()?;
+        &cwd
+          .join("config/config.yml")
+          .to_str()
+          .ok_or(anyhow!("Failed to build config path"))?
+          .to_string()
+      }
     };
-    let built = builder
+    let config = Config::builder()
+      .add_source(config::File::with_name(file))
       .add_source(
         config::Environment::with_prefix(prefix)
           .separator("_")
           .prefix_separator("_"),
       )
       .build()
-      .context("Failed to build configuration")?;
-    let mut config: Configuration = built
+      .context("Failed to build configuration")?
       .try_deserialize()
       .context("Failed to deserialize configuration")?;
-    let database = &mut config.database;
-
-    config.port.get_or_insert(8080);
-
-    database.host.get_or_insert("127.0.0.1".into());
-    database.port.get_or_insert(5432);
-    database.username.get_or_insert("app".into());
-    database.password.get_or_insert("secret".into());
-    database.name.get_or_insert("shortlinks".into());
-
     Ok(config)
   }
 }

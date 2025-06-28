@@ -35,10 +35,10 @@ pub async fn prepare() -> TestFixtures {
 
   let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind address");
   let port = listener.local_addr().unwrap().port();
-  let address = format!("http://127.0.0.1:{}", port);
+  let address = format!("http://127.0.0.1:{port}");
 
   let mut config = Configuration::load("SLINK", None).expect("Failed to load configuration");
-  config.database.name = Some(Uuid::new_v4().to_string());
+  config.database.name = Uuid::new_v4().to_string();
   let db_pool = configure_database(&config.database).await;
 
   let server = start(listener, db_pool.clone()).expect("Failed to create server");
@@ -53,7 +53,7 @@ pub async fn prepare() -> TestFixtures {
 
 pub async fn configure_database(config: &DatabaseConfig) -> PgPool {
   let maintenance = DatabaseConfig {
-    name: Some("postgres".to_string()),
+    name: "postgres".to_string(),
     ..config.clone()
   };
 
@@ -61,9 +61,8 @@ pub async fn configure_database(config: &DatabaseConfig) -> PgPool {
     .await
     .expect("Failed to connect to postgres");
 
-  let name = config.name.clone().unwrap();
   conn
-    .execute(format!("CREATE DATABASE \"{}\";", name).as_str())
+    .execute(format!("CREATE DATABASE \"{}\";", config.name).as_str())
     .await
     .expect("Failed to create database");
 

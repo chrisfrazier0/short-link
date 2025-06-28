@@ -9,13 +9,12 @@ async fn main() -> Result<()> {
   Telemetry::new("short-link", "info").init(std::io::stdout)?;
 
   let config = Configuration::load("SLINK", None)?;
-  let address = format!("127.0.0.1:{}", config.port.unwrap());
+  let address = format!("{}:{}", config.server.host, config.server.port);
   let listener = TcpListener::bind(address).context("Failed to bind address")?;
 
   let conn_string = config.database.connection_string();
-  let db_pool = PgPool::connect(conn_string.expose_secret())
-    .await
-    .context("Failed to connect to database")?;
+  let db_pool =
+    PgPool::connect_lazy(conn_string.expose_secret()).context("Failed to connect to database")?;
 
   start(listener, db_pool)?
     .await
