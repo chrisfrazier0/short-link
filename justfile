@@ -7,8 +7,10 @@ db:
   ./scripts/database.sh
 
 # Start the server with bunyan pretty-print
-start: db
+run: db
   @cargo run | bunyan
+
+alias start := run
 
 # Audit the dependencies for known vulnerabilities
 audit:

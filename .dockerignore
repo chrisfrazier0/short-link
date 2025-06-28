@@ -1,0 +1,9 @@
+# ignore everything by default
+*
+
+# include the following
+!/.sqlx/
+!/config/
+!/src/
+!/Cargo.lock
+!/Cargo.toml
